@@ -48,15 +48,6 @@ import java.util.List;
 public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
-    public final String KEY_STATE = "STATE" ;
-    public final String KEY_USER_NAME = "USER_NAME" ;
-    public final String KEY_USER_PWD = "USER_PWD" ;
-    public final String KEY_RSSI = "RSSI" ;
-    public final String KEY_UUID = "UUID" ;
-    public final String KEY_MAJOR = "MAJOR" ;
-    public final String KEY_MINOR = "MINOR" ;
-    public final int VALUE_SEND_IBEACON = 1 ;
-    public final int VALUE_LOGIN = 2 ;
 
     static SAILS mSails;
     static SAILSMapView mSailsMapView;
@@ -313,9 +304,9 @@ public class iBeaconGS_Main extends Activity
                         pwdEditText = (TextView) view.findViewById(R.id.pwd);
 
                         try {
-                            loginJSONObject.put(KEY_STATE, VALUE_LOGIN);
-                            loginJSONObject.put(KEY_USER_NAME, userEditText.getText());
-                            loginJSONObject.put(KEY_USER_PWD, pwdEditText.getText());
+                            loginJSONObject.put(JSON.KEY_STATE, JSON.STATE_LOGIN);
+                            loginJSONObject.put(JSON.KEY_USER_NAME, userEditText.getText());
+                            loginJSONObject.put(JSON.KEY_USER_PWD, pwdEditText.getText());
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -635,11 +626,11 @@ public class iBeaconGS_Main extends Activity
 
             JSONObject ibeaconJSONObject = new JSONObject();
             try {
-                ibeaconJSONObject.put(KEY_STATE, VALUE_SEND_IBEACON);
-                ibeaconJSONObject.put(KEY_RSSI, Rssi);
-                ibeaconJSONObject.put(KEY_UUID, Uuid);
-                ibeaconJSONObject.put(KEY_MAJOR, Major);
-                ibeaconJSONObject.put(KEY_MINOR, Minor);
+                ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
+                ibeaconJSONObject.put(JSON.KEY_RSSI, Rssi);
+                ibeaconJSONObject.put(JSON.KEY_UUID, Uuid);
+                ibeaconJSONObject.put(JSON.KEY_MAJOR, Major);
+                ibeaconJSONObject.put(JSON.KEY_MINOR, Minor);
 
             } catch (JSONException e) {
                 e.printStackTrace();
