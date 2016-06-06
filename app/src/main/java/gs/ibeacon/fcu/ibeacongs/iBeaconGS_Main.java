@@ -37,6 +37,7 @@ import org.altbeacon.beacon.Region;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -48,6 +49,9 @@ import java.util.List;
 public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
+
+    private String address = "140.134.226.181";
+    private int port = 8766;
 
     static SAILS mSails;
     static SAILSMapView mSailsMapView;
@@ -69,10 +73,9 @@ public class iBeaconGS_Main extends Activity
     private TextView userEditText;
     private TextView pwdEditText;
 
-    private String address = "140.134.226.182";
-    private int port = 8766;
     Socket clientSocket = new Socket();
     DataOutputStream outToServer;
+    DataInputStream sendFromServer;
     Thread thread;
 
     private NavigationDrawerFragment mNavigationDrawerFragment;
@@ -102,7 +105,6 @@ public class iBeaconGS_Main extends Activity
         //ibeacon scan
         thread = new Thread(connecttoServer);
         thread.start();
-
         mHandler = new Handler();
         RssiText = (TextView) findViewById(R.id.RssiText);
         UuidText = (TextView) findViewById(R.id.UuidText);
@@ -304,7 +306,6 @@ public class iBeaconGS_Main extends Activity
                         pwdEditText = (TextView) view.findViewById(R.id.pwd);
 
                         try {
-                            loginJSONObject.put(JSON.KEY_STATE, JSON.STATE_LOGIN);
                             loginJSONObject.put(JSON.KEY_USER_NAME, userEditText.getText());
                             loginJSONObject.put(JSON.KEY_USER_PWD, pwdEditText.getText());
                         } catch (JSONException e) {
@@ -572,15 +573,58 @@ public class iBeaconGS_Main extends Activity
         });
 
     }
+    public Runnable serverhandler = new Runnable(){
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    JSONObject receiveObject;
+                    if (!clientSocket.isInputShutdown()) {
+                        String receiveMessage = null;
+                        receiveMessage = sendFromServer.readUTF();
+                        if (receiveMessage != null) {
+                            receiveObject = new JSONObject(receiveMessage);
+                            int state = receiveObject.getInt(JSON.KEY_STATE);
+                            switch(state){
+                                case JSON.STATE_WHOAMI:
+                                    String name = receiveObject.getString(JSON.KEY_USER_NAME);
+                                    System.out.println("You are :" + name);
+                                    break;
 
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
     public Runnable connecttoServer = new Runnable() {
         @Override
         public void run() {
             try {
                 clientSocket = new Socket(InetAddress.getByName(address), port);
                 outToServer = new DataOutputStream( clientSocket.getOutputStream() );
+                sendFromServer = new DataInputStream( clientSocket.getInputStream() );
+                JSONObject receiveObject;
+                if(!clientSocket.isInputShutdown()) {
+                    String receiveMessage = sendFromServer.readUTF();
+                    if(receiveMessage != null){
+                        receiveObject = new JSONObject(receiveMessage);
+                        boolean isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
+                        if(isLogin){
+                            System.out.println("####################################");
+                            System.out.println("####################################");
+                            System.out.println("####################################");
+                            Thread t = new Thread(serverhandler);
+                            t.start();
+                        }
+                    }
+
+                }
             }
-            catch (IOException e) {
+            catch (Exception e) {
                 e.printStackTrace();
             }
         }
