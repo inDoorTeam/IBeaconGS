@@ -35,6 +35,7 @@ import org.altbeacon.beacon.BeaconManager;
 import org.altbeacon.beacon.BeaconParser;
 import org.altbeacon.beacon.RangeNotifier;
 import org.altbeacon.beacon.Region;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -65,6 +66,7 @@ public class iBeaconGS_Main extends Activity
     private TextView homeText;
     private TextView RssiText,UuidText,MajorText,MinorText;
     private Button stopButton;
+    private Button findFriendButton;
     private Handler mHandler;
     private int Rssi, Major, Minor;
     private String Uuid;
@@ -118,6 +120,7 @@ public class iBeaconGS_Main extends Activity
         homeText = (TextView) findViewById(R.id.homeText);
 
         stopButton = (Button) findViewById(R.id.stopButton);
+        findFriendButton = (Button) findViewById(R.id.FindFriendButton);
         msgLoading = new ProgressDialog(this);
         msgLoadSuccess = new AlertDialog.Builder(this);
         msgLogin = new AlertDialog.Builder(this);
@@ -241,13 +244,20 @@ public class iBeaconGS_Main extends Activity
                 break;
             case 3:
                 mTitle = getString(R.string.title_section3);
-                JSONObject findFriendJSONObject = new JSONObject();
-                try {
-                    findFriendJSONObject.put(JSON.KEY_STATE, JSON.STATE_FIND_FRIEND);
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-                sendtoServer(findFriendJSONObject);
+                findFriendButton.setVisibility(View.VISIBLE);
+                findFriendButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        JSONObject findFriendJSONObject = new JSONObject();
+                        try {
+                            findFriendJSONObject.put(JSON.KEY_STATE, JSON.STATE_FIND_FRIEND);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                        if(isLogin)
+                            sendtoServer(findFriendJSONObject);
+                    }
+                });
                 homeText.setVisibility(View.INVISIBLE);
                 break;
 //            case 4:
@@ -312,34 +322,57 @@ public class iBeaconGS_Main extends Activity
                 }
                 break;
             case R.id.login:
-                LayoutInflater factory = LayoutInflater.from(this);
-                final View view = factory.inflate(R.layout.login,null);
-                AlertDialog.Builder loginDialog = new AlertDialog.Builder(this);
-                //loginDialog.setTitle("Login");
-                loginDialog.setView(view);
-                loginDialog.setPositiveButton("Login", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
+                if(!isLogin) {
+                    LayoutInflater factory = LayoutInflater.from(this);
+                    final View view = factory.inflate(R.layout.login,null);
+                    AlertDialog.Builder loginDialog = new AlertDialog.Builder(this);
+                    //loginDialog.setTitle("Login");
+                    loginDialog.setView(view);
+                    loginDialog.setPositiveButton("Login", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
 
-                        JSONObject loginJSONObject = new JSONObject();
-                        userEditText = (TextView) view.findViewById(R.id.usr);
-                        pwdEditText = (TextView) view.findViewById(R.id.pwd);
+                            JSONObject loginJSONObject = new JSONObject();
+                            userEditText = (TextView) view.findViewById(R.id.usr);
+                            pwdEditText = (TextView) view.findViewById(R.id.pwd);
 
-                        try {
-                            loginJSONObject.put(JSON.KEY_USER_NAME, userEditText.getText());
-                            loginJSONObject.put(JSON.KEY_USER_PWD, pwdEditText.getText());
-                        } catch (JSONException e) {
-                            e.printStackTrace();
+                            try {
+                                loginJSONObject.put(JSON.KEY_USER_NAME, userEditText.getText());
+                                loginJSONObject.put(JSON.KEY_USER_PWD, pwdEditText.getText());
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                            sendtoServer(loginJSONObject);
+
                         }
-                        sendtoServer( loginJSONObject );
+                    });
+                    loginDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                        }
+                    });
+                    loginDialog.show();
+                }
+                else if(isLogin) {
+                    AlertDialog.Builder logoutDialog = new AlertDialog.Builder(this);
+                    logoutDialog.setMessage("確定登出 ? ");
+                    logoutDialog.setPositiveButton("Logout", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            JSONObject logoutJSONObject = new JSONObject();
+                            try {
+                                logoutJSONObject.put(JSON.KEY_STATE, JSON.STATE_LOGOUT);
+                                sendtoServer(logoutJSONObject);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
 
-                    }
-                });
-                loginDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                    }
-                });
-                loginDialog.show();
-
+                        }
+                    });
+                    logoutDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                        }
+                    });
+                    logoutDialog.show();
+                    loginItem.setTitle("Login");
+                }
                 break;
         }
 
@@ -610,6 +643,11 @@ public class iBeaconGS_Main extends Activity
                                     String name = receiveObject.getString(JSON.KEY_USER_NAME);
                                     System.out.println("You are :" + name);
                                     break;
+                                case JSON.STATE_FIND_FRIEND:
+                                    JSONArray friendLocationJSONArray = receiveObject.getJSONArray(JSON.KEY_USER_LIST);
+
+
+
 
                             }
                         }
@@ -635,7 +673,7 @@ public class iBeaconGS_Main extends Activity
                         isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
                         if(isLogin){
                             loginItem.setTitle("Logout");
-                            msgLogin.show();
+                            //msgLogin.show();
                             (new Thread(serverhandler)).start();
                         }
                     }
