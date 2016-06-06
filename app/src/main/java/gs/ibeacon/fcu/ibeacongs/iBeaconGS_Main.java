@@ -51,7 +51,7 @@ public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
 
-    private String address = "140.134.226.181";
+    private String address = "140.134.226.182";
     private int port = 8766;
 
     static SAILS mSails;
@@ -121,6 +121,11 @@ public class iBeaconGS_Main extends Activity
         msgLoading = new ProgressDialog(this);
         msgLoadSuccess = new AlertDialog.Builder(this);
         msgLogin = new AlertDialog.Builder(this);
+        msgLogin.setMessage("Login Success");
+        msgLogin.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+            }
+        });
 
         beaconManager = BeaconManager.getInstanceForApplication(this);
         beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
@@ -236,10 +241,6 @@ public class iBeaconGS_Main extends Activity
                 break;
             case 3:
                 mTitle = getString(R.string.title_section3);
-                homeText.setVisibility(View.INVISIBLE);
-                break;
-            case 4:
-                mTitle = getString(R.string.title_section4);
                 JSONObject findFriendJSONObject = new JSONObject();
                 try {
                     findFriendJSONObject.put(JSON.KEY_STATE, JSON.STATE_FIND_FRIEND);
@@ -249,10 +250,14 @@ public class iBeaconGS_Main extends Activity
                 sendtoServer(findFriendJSONObject);
                 homeText.setVisibility(View.INVISIBLE);
                 break;
-            case 5:
-                mTitle = getString(R.string.title_section5);
-                homeText.setVisibility(View.INVISIBLE);
-                break;
+//            case 4:
+//                mTitle = getString(R.string.title_section4);
+//                homeText.setVisibility(View.INVISIBLE);
+//                break;
+//            case 5:
+//                mTitle = getString(R.string.title_section5);
+//                homeText.setVisibility(View.INVISIBLE);
+//                break;
         }
     }
     public void startScan() {
@@ -629,13 +634,8 @@ public class iBeaconGS_Main extends Activity
                         receiveObject = new JSONObject(receiveMessage);
                         isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
                         if(isLogin){
-                            msgLogin.setMessage("Login Success");
-                            msgLogin.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int id) {
-                                }
-                            });
-                            msgLogin.show();
                             loginItem.setTitle("Logout");
+                            msgLogin.show();
                             (new Thread(serverhandler)).start();
                         }
                     }
@@ -657,43 +657,39 @@ public class iBeaconGS_Main extends Activity
         }
     }
 
-
     public Runnable scanRunnable = new Runnable() {
         @Override
         public void run() {
-            if( Rssi > PreviousRssi ) {
-                if( PreviousMajor != Major && PreviousMinor != Minor ) {
-                    //set start region
-                    List<LocationRegion> locationRegions = null;
-                    JSONObject ibeaconJSONObject = new JSONObject();
-                    String location = null;
-                    if (Major == 4369 && Minor == 8738) {
-                        location = "資電222 - 第三國際會議廳";
-                        locationRegions = mSails.findRegionByLabel(location);
-                    } else if(Major == 43690 && Minor == 65505){
-                        location = "資電201 - 資訊系辦公室";
-                        locationRegions = mSails.findRegionByLabel(location);
-                    } else if(Major == 257 && Minor == 65505){
-                        location = "資電234 - 網際網路及軟體工程學程實驗室";
-                        locationRegions = mSails.findRegionByLabel(location);
-                    }
-                    if (isGuiding) {
-                        mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
-                        mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-                        mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-                    }
-
-                    try {
-                        ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
-                        ibeaconJSONObject.put(JSON.KEY_LOCATION, location);
-
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                    if(isLogin)
-                        sendtoServer(ibeaconJSONObject);
-
+            if( PreviousMajor != Major || PreviousMinor != Minor ) {
+                //set start region
+                List<LocationRegion> locationRegions = null;
+                JSONObject ibeaconJSONObject = new JSONObject();
+                String location = null;
+                if (Major == 4369 && Minor == 8738) {
+                    location = "資電222 - 第三國際會議廳";
+                    locationRegions = mSails.findRegionByLabel(location);
+                } else if(Major == 43690 && Minor == 65505){
+                    location = "資電201 - 資訊系辦公室";
+                    locationRegions = mSails.findRegionByLabel(location);
+                } else if(Major == 257 && Minor == 65505){
+                    location = "資電234 - 網際網路及軟體工程學程實驗室";
+                    locationRegions = mSails.findRegionByLabel(location);
                 }
+                if (isGuiding) {
+                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
+                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                }
+
+                try {
+                    ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
+                    ibeaconJSONObject.put(JSON.KEY_LOCATION, location);
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                if(isLogin)
+                    sendtoServer(ibeaconJSONObject);
 
             }
             PreviousRssi = Rssi;

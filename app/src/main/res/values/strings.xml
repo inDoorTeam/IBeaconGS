@@ -3,8 +3,8 @@
 
     <string name="title_section1">首頁</string>
     <string name="title_section2">區域導引</string>
-    <string name="title_section3">定位跟隨車</string>
-    <string name="title_section4">尋人</string>
+    <string name="title_section3">尋找好友</string>
+    <string name="title_section4">定位跟隨車</string>
     <string name="title_section5">遺失物找尋</string>
 
     <string name="navigation_drawer_open">Open navigation drawer</string>
