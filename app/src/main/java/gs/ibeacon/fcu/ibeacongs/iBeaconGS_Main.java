@@ -51,7 +51,7 @@ public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
 
-    private String address = "140.134.226.182";
+    private String address = "140.134.226.181";
     private int port = 8766;
 
     static SAILS mSails;
@@ -236,12 +236,22 @@ public class iBeaconGS_Main extends Activity
                 break;
             case 3:
                 mTitle = getString(R.string.title_section3);
+                homeText.setVisibility(View.INVISIBLE);
                 break;
             case 4:
                 mTitle = getString(R.string.title_section4);
+                JSONObject findFriendJSONObject = new JSONObject();
+                try {
+                    findFriendJSONObject.put(JSON.KEY_STATE, JSON.STATE_FIND_FRIEND);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                sendtoServer(findFriendJSONObject);
+                homeText.setVisibility(View.INVISIBLE);
                 break;
             case 5:
                 mTitle = getString(R.string.title_section5);
+                homeText.setVisibility(View.INVISIBLE);
                 break;
         }
     }

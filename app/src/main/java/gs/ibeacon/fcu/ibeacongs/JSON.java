@@ -26,4 +26,5 @@ public class JSON {
     public static final int STATE_SEND_IBEACON = 1 ;
     public static final int STATE_LOGIN = 2 ;
     public static final int STATE_WHOAMI = 3 ;
+    public static final int STATE_FIND_FRIEND = 4 ;
 }
