@@ -12,6 +12,8 @@ public class JSON {
     public static final String KEY_UUID = "UUID" ;
     public static final String KEY_MAJOR = "MAJOR" ;
     public static final String KEY_MINOR = "MINOR" ;
+    public static final String KEY_LOCATION = "LOCATION" ;
+
 
 
     public static final String KEY_RESULT = "result";

@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.FragmentManager;
+import android.app.ProgressDialog;
 import android.app.Service;
 import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
@@ -50,7 +51,7 @@ public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
 
-    private String address = "140.134.226.181";
+    private String address = "140.134.226.182";
     private int port = 8766;
 
     static SAILS mSails;
@@ -69,9 +70,14 @@ public class iBeaconGS_Main extends Activity
     private String Uuid;
     public int PreviousMajor = 0,PreviousMinor = 0;
     public int PreviousRssi = -1000;
-    AlertDialog.Builder msgDialog ;
+    ProgressDialog msgLoading ;
+    AlertDialog.Builder msgLoadSuccess ;
+    AlertDialog.Builder msgLogin ;
     private TextView userEditText;
     private TextView pwdEditText;
+    private MenuItem loginItem;
+    private boolean isLogin = false;
+    private boolean isGuiding = false;
 
     Socket clientSocket = new Socket();
     DataOutputStream outToServer;
@@ -103,8 +109,7 @@ public class iBeaconGS_Main extends Activity
         lockcenter = (ImageView) findViewById(R.id.lockcenter);
 
         //ibeacon scan
-        thread = new Thread(connecttoServer);
-        thread.start();
+        (new Thread(connecttoServer)).start();
         mHandler = new Handler();
         RssiText = (TextView) findViewById(R.id.RssiText);
         UuidText = (TextView) findViewById(R.id.UuidText);
@@ -112,16 +117,15 @@ public class iBeaconGS_Main extends Activity
         MinorText = (TextView) findViewById(R.id.MinorText);
         homeText = (TextView) findViewById(R.id.homeText);
 
-
-
         stopButton = (Button) findViewById(R.id.stopButton);
-        msgDialog = new AlertDialog.Builder(this);
+        msgLoading = new ProgressDialog(this);
+        msgLoadSuccess = new AlertDialog.Builder(this);
+        msgLogin = new AlertDialog.Builder(this);
 
         beaconManager = BeaconManager.getInstanceForApplication(this);
         beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
-        beaconManager.setBackgroundScanPeriod(500);
+        //beaconManager.setBackgroundScanPeriod(500);
         //beaconManager.bind(this);
-        //beaconManager.setBackgroundMode(true);
 
         mSails = new SAILS(this);
         mSails.setMode(SAILS.BLE_GFP_IMU);
@@ -148,43 +152,40 @@ public class iBeaconGS_Main extends Activity
                 homeText.setVisibility(View.VISIBLE);
                 break;
             case 2:
+                startScan();
                 mTitle = getString(R.string.title_section2);
                 homeText.setVisibility(View.INVISIBLE);
+                msgLoading.setTitle("Loading Map");
+                msgLoading.setMessage("Waiting ...");
 
-                msgDialog.setMessage("Waiting ...");
-                msgDialog.setTitle("Loading Map");
-                msgDialog.setCancelable(false);
-                final AlertDialog alertLoading = msgDialog.create();
-                alertLoading.show();
-
-                msgDialog.setMessage("Load successfully");
-                msgDialog.setCancelable(true);
-                msgDialog.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                msgLoadSuccess.setMessage("Load successfully");
+                msgLoadSuccess.setTitle("Loading Map");
+                msgLoadSuccess.setCancelable(true);
+                msgLoadSuccess.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                     }
                 });
-                final AlertDialog alertLoadSuccess = msgDialog.create();
 
                 stopButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         mSailsMapView.getRoutingManager().disableHandler();
-                        stopScan();
+                        stopGuiding();
                     }
                 });
 
                 mSailsMapView.post(new Runnable() {
                     @Override
                     public void run() {
-                        alertLoading.show();
+                        msgLoading.show();
                         mSails.loadCloudBuilding("ad8538700fd94717bbeda154b2a1c584", "5705e42055cce32e10002a2d", new SAILS.OnFinishCallback() {
                             @Override
                             public void onSuccess(String response) {
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        alertLoading.cancel();
-                                        alertLoadSuccess.show();
+                                        msgLoading.dismiss();
+                                        msgLoadSuccess.show();
 
                                         mSailsMapView.setSAILSEngine(mSails);
                                         mSailsMapView.setLocationMarker(R.drawable.circle, R.drawable.arrow, null, 35);
@@ -215,8 +216,7 @@ public class iBeaconGS_Main extends Activity
                                                     mSailsMapView.getRoutingManager().getPathPaint().setColor(0xFF85b038);
                                                     mSailsMapView.getRoutingManager().setTargetRegion(lr);
                                                     mSailsMapView.getRoutingManager().enableHandler();
-
-                                                    startScan();
+                                                    startGuiding();
                                                 }
                                             }
                                         });
@@ -227,8 +227,8 @@ public class iBeaconGS_Main extends Activity
 
                             @Override
                             public void onFailed(String response) {
-                                alertLoadSuccess.setMessage("Load Failed");
-                                alertLoadSuccess.show();
+                                msgLoadSuccess.setMessage("Load Failed");
+                                msgLoadSuccess.show();
                             }
                         });
                     }
@@ -245,16 +245,19 @@ public class iBeaconGS_Main extends Activity
                 break;
         }
     }
-    public void startScan(){
+    public void startScan() {
         beaconManager.bind(this);
+    }
+    public void startGuiding(){
+        isGuiding = true;
         RssiText.setVisibility(View.VISIBLE);
         UuidText.setVisibility(View.VISIBLE);
         MajorText.setVisibility(View.VISIBLE);
         MinorText.setVisibility(View.VISIBLE);
         stopButton.setVisibility(View.VISIBLE);
     }
-    public void stopScan(){
-        beaconManager.unbind(this);
+    public void stopGuiding(){
+        isGuiding = false;
         RssiText.setVisibility(View.INVISIBLE);
         UuidText.setVisibility(View.INVISIBLE);
         MajorText.setVisibility(View.INVISIBLE);
@@ -274,6 +277,7 @@ public class iBeaconGS_Main extends Activity
         if (!mNavigationDrawerFragment.isDrawerOpen()) {
             getMenuInflater().inflate(R.menu.main, menu);
             restoreActionBar();
+            loginItem = menu.findItem(R.id.login);
             return true;
         }
         return super.onCreateOptionsMenu(menu);
@@ -289,8 +293,7 @@ public class iBeaconGS_Main extends Activity
         switch (id) {
             case R.id.ConnecttoServer:
                 if ( !clientSocket.isConnected() ){
-                    thread = new Thread(connecttoServer);
-                    thread.start();
+                    (new Thread(connecttoServer)).start();
                 }
                 break;
             case R.id.login:
@@ -301,6 +304,7 @@ public class iBeaconGS_Main extends Activity
                 loginDialog.setView(view);
                 loginDialog.setPositiveButton("Login", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
+
                         JSONObject loginJSONObject = new JSONObject();
                         userEditText = (TextView) view.findViewById(R.id.usr);
                         pwdEditText = (TextView) view.findViewById(R.id.pwd);
@@ -544,6 +548,7 @@ public class iBeaconGS_Main extends Activity
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
         beaconManager.unbind(this);
     }
     @Override
@@ -612,13 +617,16 @@ public class iBeaconGS_Main extends Activity
                     String receiveMessage = sendFromServer.readUTF();
                     if(receiveMessage != null){
                         receiveObject = new JSONObject(receiveMessage);
-                        boolean isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
+                        isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
                         if(isLogin){
-                            System.out.println("####################################");
-                            System.out.println("####################################");
-                            System.out.println("####################################");
-                            Thread t = new Thread(serverhandler);
-                            t.start();
+                            msgLogin.setMessage("Login Success");
+                            msgLogin.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                }
+                            });
+                            msgLogin.show();
+                            loginItem.setTitle("Logout");
+                            (new Thread(serverhandler)).start();
                         }
                     }
 
@@ -647,17 +655,36 @@ public class iBeaconGS_Main extends Activity
                 if( PreviousMajor != Major && PreviousMinor != Minor ) {
                     //set start region
                     List<LocationRegion> locationRegions = null;
+                    JSONObject ibeaconJSONObject = new JSONObject();
+                    String location = null;
                     if (Major == 4369 && Minor == 8738) {
-                        locationRegions = mSails.findRegionByLabel("資電222 - 第三國際會議廳");
-                    } else {
-                        locationRegions = mSails.findRegionByLabel("資電201 - 資訊系辦公室");
+                        location = "資電222 - 第三國際會議廳";
+                        locationRegions = mSails.findRegionByLabel(location);
+                    } else if(Major == 43690 && Minor == 65505){
+                        location = "資電201 - 資訊系辦公室";
+                        locationRegions = mSails.findRegionByLabel(location);
+                    } else if(Major == 257 && Minor == 65505){
+                        location = "資電234 - 網際網路及軟體工程學程實驗室";
+                        locationRegions = mSails.findRegionByLabel(location);
                     }
-                    //mVibrator.vibrate(70);
-                    //mSailsMapView.getMarkerManager().clear();
-                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
-                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                    if (isGuiding) {
+                        mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
+                        mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                        mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                    }
+
+                    try {
+                        ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
+                        ibeaconJSONObject.put(JSON.KEY_LOCATION, location);
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    if(isLogin)
+                        sendtoServer(ibeaconJSONObject);
+
                 }
+
             }
             PreviousRssi = Rssi;
             PreviousMajor = Major;
@@ -667,19 +694,6 @@ public class iBeaconGS_Main extends Activity
             UuidText.setText( "Uuid  : " + Uuid);
             MajorText.setText("Major : " + Major);
             MinorText.setText("Minor : " + Minor);
-
-            JSONObject ibeaconJSONObject = new JSONObject();
-            try {
-                ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
-                ibeaconJSONObject.put(JSON.KEY_RSSI, Rssi);
-                ibeaconJSONObject.put(JSON.KEY_UUID, Uuid);
-                ibeaconJSONObject.put(JSON.KEY_MAJOR, Major);
-                ibeaconJSONObject.put(JSON.KEY_MINOR, Minor);
-
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            sendtoServer(ibeaconJSONObject);
         }
     };
 
