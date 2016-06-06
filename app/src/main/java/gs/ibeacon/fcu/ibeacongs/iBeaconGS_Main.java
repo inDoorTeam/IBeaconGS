@@ -19,6 +19,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -44,6 +45,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -72,22 +74,25 @@ public class iBeaconGS_Main extends Activity
     private String Uuid;
     public int PreviousMajor = 0,PreviousMinor = 0;
     public int PreviousRssi = -1000;
-    ProgressDialog msgLoading ;
-    AlertDialog.Builder msgLoadSuccess ;
-    AlertDialog.Builder msgLogin ;
+    private ProgressDialog msgLoading ;
+    private AlertDialog.Builder msgLoadSuccess ;
+    private AlertDialog.Builder msgLogin ;
+    private AlertDialog.Builder friendList;
     private TextView userEditText;
     private TextView pwdEditText;
     private MenuItem loginItem;
     private boolean isLogin = false;
     private boolean isGuiding = false;
-
+    private ArrayAdapter<String> friendListAdapter = null;
     Socket clientSocket = new Socket();
+    private String myLocation ;
     DataOutputStream outToServer;
     DataInputStream sendFromServer;
     Thread thread;
 
     private NavigationDrawerFragment mNavigationDrawerFragment;
     private CharSequence mTitle;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,11 +129,8 @@ public class iBeaconGS_Main extends Activity
         msgLoading = new ProgressDialog(this);
         msgLoadSuccess = new AlertDialog.Builder(this);
         msgLogin = new AlertDialog.Builder(this);
-        msgLogin.setMessage("Login Success");
-        msgLogin.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
-            }
-        });
+        friendList = new AlertDialog.Builder(this);
+        friendListAdapter = new ArrayAdapter<String>(this, android.R.layout.select_dialog_singlechoice);
 
         beaconManager = BeaconManager.getInstanceForApplication(this);
         beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
@@ -324,7 +326,7 @@ public class iBeaconGS_Main extends Activity
             case R.id.login:
                 if(!isLogin) {
                     LayoutInflater factory = LayoutInflater.from(this);
-                    final View view = factory.inflate(R.layout.login,null);
+                    final View view = factory.inflate(R.layout.login, null);
                     AlertDialog.Builder loginDialog = new AlertDialog.Builder(this);
                     //loginDialog.setTitle("Login");
                     loginDialog.setView(view);
@@ -351,28 +353,29 @@ public class iBeaconGS_Main extends Activity
                     });
                     loginDialog.show();
                 }
-                else if(isLogin) {
-                    AlertDialog.Builder logoutDialog = new AlertDialog.Builder(this);
-                    logoutDialog.setMessage("確定登出 ? ");
-                    logoutDialog.setPositiveButton("Logout", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            JSONObject logoutJSONObject = new JSONObject();
-                            try {
-                                logoutJSONObject.put(JSON.KEY_STATE, JSON.STATE_LOGOUT);
-                                sendtoServer(logoutJSONObject);
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                            }
-
-                        }
-                    });
-                    logoutDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                        }
-                    });
-                    logoutDialog.show();
-                    loginItem.setTitle("Login");
-                }
+//                else if(isLogin) {
+//                    AlertDialog.Builder logoutDialog = new AlertDialog.Builder(this);
+//                    logoutDialog.setMessage("確定登出 ? ");
+//                    logoutDialog.setPositiveButton("Logout", new DialogInterface.OnClickListener() {
+//                        public void onClick(DialogInterface dialog, int id) {
+//                            JSONObject logoutJSONObject = new JSONObject();
+//                            try {
+//                                logoutJSONObject.put(JSON.KEY_STATE, JSON.STATE_LOGOUT);
+//                                sendtoServer(logoutJSONObject);
+//                                //loginItem.setTitle("Login");
+//                                isLogin = false;
+//                            } catch (JSONException e) {
+//                                e.printStackTrace();
+//                            }
+//
+//                        }
+//                    });
+//                    logoutDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+//                        public void onClick(DialogInterface dialog, int id) {
+//                        }
+//                    });
+//                    logoutDialog.show();
+//                }
                 break;
         }
 
@@ -626,13 +629,14 @@ public class iBeaconGS_Main extends Activity
         });
 
     }
+
     public Runnable serverhandler = new Runnable(){
         @Override
         public void run() {
             try {
                 while (true) {
-                    JSONObject receiveObject;
-                    if (!clientSocket.isInputShutdown()) {
+                    final JSONObject receiveObject;
+                    if (clientSocket.isConnected()) {
                         String receiveMessage = null;
                         receiveMessage = sendFromServer.readUTF();
                         if (receiveMessage != null) {
@@ -644,11 +648,58 @@ public class iBeaconGS_Main extends Activity
                                     System.out.println("You are :" + name);
                                     break;
                                 case JSON.STATE_FIND_FRIEND:
-                                    JSONArray friendLocationJSONArray = receiveObject.getJSONArray(JSON.KEY_USER_LIST);
 
+                                    mHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            JSONArray friendLocationJSONArray = null;
+                                            final ArrayList<String> friendNameList = new ArrayList<String>();
+                                            final ArrayList<String> friendLocList = new ArrayList<String>();
+                                            friendListAdapter.clear();
+                                            friendNameList.clear();
+                                            friendLocList.clear();
+                                            try {
+                                                friendLocationJSONArray = receiveObject.getJSONArray(JSON.KEY_USER_LIST);
+                                                for(int index = 0 ; index < friendLocationJSONArray.length() ; index ++){
+                                                    friendListAdapter.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_USER_NAME));
+                                                    friendNameList.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_USER_NAME));
+                                                    friendLocList.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_LOCATION));
+                                                }
+                                            } catch (JSONException e) {
+                                                e.printStackTrace();
+                                            }
+                                            friendList.setTitle("Friend List");
+                                            friendList.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                                                @Override
+                                                public void onClick(DialogInterface dialog, int which) {
+                                                    dialog.dismiss();
+                                                }
+                                            });
 
+                                            final JSONArray finalFriendLocationJSONArray = friendLocationJSONArray;
+                                            friendList.setAdapter(friendListAdapter, new DialogInterface.OnClickListener() {
+                                                @Override
+                                                public void onClick(DialogInterface dialog, int which) {
+                                                    String friendName = friendListAdapter.getItem(which);
+                                                    String friendLocation = friendLocList.get(friendNameList.indexOf(friendName));
+                                                    List<LocationRegion> locationRegions = null ;
+                                                    locationRegions = mSails.findRegionByLabel(myLocation);
+                                                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
+                                                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                                                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
 
-
+                                                    locationRegions = mSails.findRegionByLabel(friendLocation);
+                                                    LocationRegion lr = locationRegions.get(0);
+                                                    mSailsMapView.getRoutingManager().setTargetMakerDrawable(Marker.boundCenterBottom(getDrawable(R.drawable.map_destination)));
+                                                    mSailsMapView.getRoutingManager().getPathPaint().setColor(0xFF85b038);
+                                                    mSailsMapView.getRoutingManager().setTargetRegion(lr);
+                                                    mSailsMapView.getRoutingManager().enableHandler();
+                                                    startGuiding();
+                                                }
+                                            });
+                                            friendList.show();
+                                        }
+                                    });
                             }
                         }
                     }
@@ -672,7 +723,7 @@ public class iBeaconGS_Main extends Activity
                         receiveObject = new JSONObject(receiveMessage);
                         isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
                         if(isLogin){
-                            loginItem.setTitle("Logout");
+                            //loginItem.setTitle("Logout");
                             //msgLogin.show();
                             (new Thread(serverhandler)).start();
                         }
@@ -702,16 +753,15 @@ public class iBeaconGS_Main extends Activity
                 //set start region
                 List<LocationRegion> locationRegions = null;
                 JSONObject ibeaconJSONObject = new JSONObject();
-                String location = null;
                 if (Major == 4369 && Minor == 8738) {
-                    location = "資電222 - 第三國際會議廳";
-                    locationRegions = mSails.findRegionByLabel(location);
+                    myLocation = "資電222 - 第三國際會議廳";
+                    locationRegions = mSails.findRegionByLabel(myLocation);
                 } else if(Major == 43690 && Minor == 65505){
-                    location = "資電201 - 資訊系辦公室";
-                    locationRegions = mSails.findRegionByLabel(location);
+                    myLocation = "資電201 - 資訊系辦公室";
+                    locationRegions = mSails.findRegionByLabel(myLocation);
                 } else if(Major == 257 && Minor == 65505){
-                    location = "資電234 - 網際網路及軟體工程學程實驗室";
-                    locationRegions = mSails.findRegionByLabel(location);
+                    myLocation = "資電234 - 網際網路及軟體工程學程實驗室";
+                    locationRegions = mSails.findRegionByLabel(myLocation);
                 }
                 if (isGuiding) {
                     mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
@@ -721,7 +771,7 @@ public class iBeaconGS_Main extends Activity
 
                 try {
                     ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
-                    ibeaconJSONObject.put(JSON.KEY_LOCATION, location);
+                    ibeaconJSONObject.put(JSON.KEY_LOCATION, myLocation);
 
                 } catch (JSONException e) {
                     e.printStackTrace();
