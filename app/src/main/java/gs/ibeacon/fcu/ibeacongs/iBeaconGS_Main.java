@@ -54,7 +54,7 @@ public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
 
-    private String address = "192.168.43.122";
+    private String address = "10.22.24.207";
     private int port = 8766;
 
     static SAILS mSails;
@@ -226,7 +226,7 @@ public class iBeaconGS_Main extends Activity
                                                     mSailsMapView.getRoutingManager().getPathPaint().setColor(0xFF85b038);
                                                     mSailsMapView.getRoutingManager().setTargetRegion(lr);
                                                     mSailsMapView.getRoutingManager().enableHandler();
-                                                    startGuiding();
+                                                    //startGuiding();
                                                 }
                                             }
                                         });
@@ -235,11 +235,10 @@ public class iBeaconGS_Main extends Activity
 
                             }
 
-                            @Override
+
                             public void onFailed(String response) {
-                                msgLoading.dismiss();
-                                //msgLoadSuccess.setMessage("Load Failed");
-                                //msgLoadSuccess.show();
+//                                msgLoadSuccess.setMessage("Load Failed");
+//                                msgLoadSuccess.show();
                             }
                         });
                     }
@@ -420,6 +419,208 @@ public class iBeaconGS_Main extends Activity
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        beaconManager.unbind(this);
+    }
+    @Override
+    public void onBeaconServiceConnect() {
+        try {
+            //beaconManager.startMonitoringBeaconsInRegion(new Region("all-beacons-region", null, null, null ));
+            beaconManager.startRangingBeaconsInRegion(new Region("ibeaconscan", null, null, null ));
+        }
+        catch (RemoteException e) {
+            e.printStackTrace();
+        }
+        //beaconManager.setMonitorNotifier(this);
+        beaconManager.setRangeNotifier(new RangeNotifier() {
+            @Override
+            public void didRangeBeaconsInRegion(Collection<org.altbeacon.beacon.Beacon> beacons, Region region) {
+                if (beacons.size() > 0) {
+                    org.altbeacon.beacon.Beacon beacon = beacons.iterator().next();
+
+                    Rssi = beacon.getRssi();
+                    Uuid = beacon.getId1().toUuidString();
+                    Major = beacon.getId2().toInt();
+                    Minor = beacon.getId3().toInt();
+                    mHandler.post(scanRunnable);
+                }
+
+            }
+        });
+
+    }
+
+    public Runnable serverhandler = new Runnable(){
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    final JSONObject receiveObject;
+                    if (clientSocket.isConnected()) {
+                        String receiveMessage = null;
+                        receiveMessage = sendFromServer.readUTF();
+                        if (receiveMessage != null) {
+                            receiveObject = new JSONObject(receiveMessage);
+                            int state = receiveObject.getInt(JSON.KEY_STATE);
+                            switch(state){
+                                case JSON.STATE_WHOAMI:
+                                    String name = receiveObject.getString(JSON.KEY_USER_NAME);
+                                    System.out.println("You are :" + name);
+                                    break;
+                                case JSON.STATE_FIND_FRIEND:
+                                    System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+                                    System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+                                    System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+                                    System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+                                    mHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            JSONArray friendLocationJSONArray = null;
+                                            final ArrayList<String> friendNameList = new ArrayList<String>();
+                                            final ArrayList<String> friendLocList = new ArrayList<String>();
+                                            friendListAdapter.clear();
+                                            friendNameList.clear();
+                                            friendLocList.clear();
+                                            try {
+                                                friendLocationJSONArray = receiveObject.getJSONArray(JSON.KEY_USER_LIST);
+                                                for(int index = 0 ; index < friendLocationJSONArray.length() ; index ++){
+                                                    friendListAdapter.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_USER_NAME));
+                                                    friendNameList.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_USER_NAME));
+                                                    friendLocList.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_LOCATION));
+                                                }
+                                            } catch (JSONException e) {
+                                                e.printStackTrace();
+                                            }
+                                            friendList.setTitle("Friend List");
+                                            friendList.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                                                @Override
+                                                public void onClick(DialogInterface dialog, int which) {
+                                                    dialog.dismiss();
+                                                }
+                                            });
+
+                                            final JSONArray finalFriendLocationJSONArray = friendLocationJSONArray;
+                                            friendList.setAdapter(friendListAdapter, new DialogInterface.OnClickListener() {
+                                                @Override
+                                                public void onClick(DialogInterface dialog, int which) {
+                                                    String friendName = friendListAdapter.getItem(which);
+                                                    String friendLocation = friendLocList.get(friendNameList.indexOf(friendName));
+                                                    List<LocationRegion> locationRegions = null ;
+                                                    locationRegions = mSails.findRegionByLabel(myLocation);
+                                                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
+                                                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                                                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+
+                                                    locationRegions = mSails.findRegionByLabel(friendLocation);
+                                                    LocationRegion lr = locationRegions.get(0);
+                                                    mSailsMapView.getRoutingManager().setTargetMakerDrawable(Marker.boundCenterBottom(getDrawable(R.drawable.map_destination)));
+                                                    mSailsMapView.getRoutingManager().getPathPaint().setColor(0xFF85b038);
+                                                    mSailsMapView.getRoutingManager().setTargetRegion(lr);
+                                                    mSailsMapView.getRoutingManager().enableHandler();
+                                                    //startGuiding();
+                                                }
+                                            });
+                                            friendList.show();
+                                        }
+                                    });
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
+    public Runnable connecttoServer = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                clientSocket = new Socket(InetAddress.getByName(address), port);
+                outToServer = new DataOutputStream( clientSocket.getOutputStream() );
+                sendFromServer = new DataInputStream( clientSocket.getInputStream() );
+                JSONObject receiveObject;
+                if(!clientSocket.isInputShutdown()) {
+                    String receiveMessage = sendFromServer.readUTF();
+                    if(receiveMessage != null){
+                        receiveObject = new JSONObject(receiveMessage);
+                        isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
+                        if(isLogin){
+                            //loginItem.setTitle("Logout");
+                            //msgLogin.show();
+                            (new Thread(serverhandler)).start();
+                        }
+                    }
+
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
+    public void sendtoServer(JSONObject sendtoServer){
+        if(clientSocket.isConnected()) {
+            try {
+                outToServer.writeUTF(sendtoServer.toString());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public Runnable scanRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if( PreviousMajor != Major || PreviousMinor != Minor ) {
+                //set start region
+                List<LocationRegion> locationRegions = null;
+                JSONObject ibeaconJSONObject = new JSONObject();
+                if (Major == 4369 && Minor == 8738) {
+                    myLocation = "資電234 - 網際網路及軟體工程學程實驗室";
+                    locationRegions = mSails.findRegionByLabel(myLocation);
+                } else if(Major == 43690 && Minor == 65505){
+                    myLocation = "資電201 - 資訊系辦公室";
+                    locationRegions = mSails.findRegionByLabel(myLocation);
+                } else if(Major == 257 && Minor == 65505){
+                    myLocation = "資電222 - 第三國際會議廳";
+                    locationRegions = mSails.findRegionByLabel(myLocation);
+                }
+                if (isGuiding) {
+                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
+                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                }
+
+                try {
+                    ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
+                    ibeaconJSONObject.put(JSON.KEY_LOCATION, myLocation);
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                if(isLogin)
+                    sendtoServer(ibeaconJSONObject);
+
+            }
+            PreviousRssi = Rssi;
+            PreviousMajor = Major;
+            PreviousMinor = Minor;
+
+            RssiText.setText( "Rssi  : " + Rssi);
+            UuidText.setText( "Uuid  : " + Uuid);
+            MajorText.setText("Major : " + Major);
+            MinorText.setText("Minor : " + Minor);
+        }
+    };
+
+
+
+
+
     void mapViewInitial() {
         //establish a connection of SAILS engine into SAILS MapView.
         mSailsMapView.setSAILSEngine(mSails);
@@ -597,199 +798,5 @@ public class iBeaconGS_Main extends Activity
     */
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        beaconManager.unbind(this);
-    }
-    @Override
-    public void onBeaconServiceConnect() {
-        try {
-            //beaconManager.startMonitoringBeaconsInRegion(new Region("all-beacons-region", null, null, null ));
-            beaconManager.startRangingBeaconsInRegion(new Region("ibeaconscan", null, null, null ));
-        }
-        catch (RemoteException e) {
-            e.printStackTrace();
-        }
-        //beaconManager.setMonitorNotifier(this);
-        beaconManager.setRangeNotifier(new RangeNotifier() {
-            @Override
-            public void didRangeBeaconsInRegion(Collection<org.altbeacon.beacon.Beacon> beacons, Region region) {
-                if (beacons.size() > 0) {
-                    org.altbeacon.beacon.Beacon beacon = beacons.iterator().next();
-
-                    Rssi = beacon.getRssi();
-                    Uuid = beacon.getId1().toUuidString();
-                    Major = beacon.getId2().toInt();
-                    Minor = beacon.getId3().toInt();
-                    mHandler.post(scanRunnable);
-                }
-
-            }
-        });
-
-    }
-
-    public Runnable serverhandler = new Runnable(){
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    final JSONObject receiveObject;
-                    if (clientSocket.isConnected()) {
-                        String receiveMessage = null;
-                        receiveMessage = sendFromServer.readUTF();
-                        if (receiveMessage != null) {
-                            receiveObject = new JSONObject(receiveMessage);
-                            int state = receiveObject.getInt(JSON.KEY_STATE);
-                            switch(state){
-                                case JSON.STATE_WHOAMI:
-                                    String name = receiveObject.getString(JSON.KEY_USER_NAME);
-                                    System.out.println("You are :" + name);
-                                    break;
-                                case JSON.STATE_FIND_FRIEND:
-
-                                    mHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            JSONArray friendLocationJSONArray = null;
-                                            final ArrayList<String> friendNameList = new ArrayList<String>();
-                                            final ArrayList<String> friendLocList = new ArrayList<String>();
-                                            friendListAdapter.clear();
-                                            friendNameList.clear();
-                                            friendLocList.clear();
-                                            try {
-                                                friendLocationJSONArray = receiveObject.getJSONArray(JSON.KEY_USER_LIST);
-                                                for(int index = 0 ; index < friendLocationJSONArray.length() ; index ++){
-                                                    friendListAdapter.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_USER_NAME));
-                                                    friendNameList.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_USER_NAME));
-                                                    friendLocList.add(friendLocationJSONArray.getJSONObject(index).getString(JSON.KEY_LOCATION));
-                                                }
-                                            } catch (JSONException e) {
-                                                e.printStackTrace();
-                                            }
-                                            friendList.setTitle("Friend List");
-                                            friendList.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                                                @Override
-                                                public void onClick(DialogInterface dialog, int which) {
-                                                    dialog.dismiss();
-                                                }
-                                            });
-
-                                            final JSONArray finalFriendLocationJSONArray = friendLocationJSONArray;
-                                            friendList.setAdapter(friendListAdapter, new DialogInterface.OnClickListener() {
-                                                @Override
-                                                public void onClick(DialogInterface dialog, int which) {
-                                                    String friendName = friendListAdapter.getItem(which);
-                                                    String friendLocation = friendLocList.get(friendNameList.indexOf(friendName));
-                                                    List<LocationRegion> locationRegions = null ;
-                                                    locationRegions = mSails.findRegionByLabel(myLocation);
-                                                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
-                                                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-                                                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-
-                                                    locationRegions = mSails.findRegionByLabel(friendLocation);
-                                                    LocationRegion lr = locationRegions.get(0);
-                                                    mSailsMapView.getRoutingManager().setTargetMakerDrawable(Marker.boundCenterBottom(getDrawable(R.drawable.map_destination)));
-                                                    mSailsMapView.getRoutingManager().getPathPaint().setColor(0xFF85b038);
-                                                    mSailsMapView.getRoutingManager().setTargetRegion(lr);
-                                                    mSailsMapView.getRoutingManager().enableHandler();
-                                                    startGuiding();
-                                                }
-                                            });
-                                            friendList.show();
-                                        }
-                                    });
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    };
-    public Runnable connecttoServer = new Runnable() {
-        @Override
-        public void run() {
-            try {
-                clientSocket = new Socket(InetAddress.getByName(address), port);
-                outToServer = new DataOutputStream( clientSocket.getOutputStream() );
-                sendFromServer = new DataInputStream( clientSocket.getInputStream() );
-                JSONObject receiveObject;
-                if(!clientSocket.isInputShutdown()) {
-                    String receiveMessage = sendFromServer.readUTF();
-                    if(receiveMessage != null){
-                        receiveObject = new JSONObject(receiveMessage);
-                        isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
-                        if(isLogin){
-                            //loginItem.setTitle("Logout");
-                            //msgLogin.show();
-                            (new Thread(serverhandler)).start();
-                        }
-                    }
-
-                }
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    };
-    public void sendtoServer(JSONObject sendtoServer){
-        if(clientSocket.isConnected()) {
-            try {
-                outToServer.writeUTF(sendtoServer.toString());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public Runnable scanRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if( PreviousMajor != Major || PreviousMinor != Minor ) {
-                //set start region
-                List<LocationRegion> locationRegions = null;
-                JSONObject ibeaconJSONObject = new JSONObject();
-                if (Major == 4369 && Minor == 8738) {
-                    myLocation = "資電222 - 第三國際會議廳";
-                    locationRegions = mSails.findRegionByLabel(myLocation);
-                } else if(Major == 43690 && Minor == 65505){
-                    myLocation = "資電201 - 資訊系辦公室";
-                    locationRegions = mSails.findRegionByLabel(myLocation);
-                } else if(Major == 257 && Minor == 65505){
-                    myLocation = "資電234 - 網際網路及軟體工程學程實驗室";
-                    locationRegions = mSails.findRegionByLabel(myLocation);
-                }
-                if (isGuiding) {
-                    mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
-                    mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-                    mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
-                }
-
-                try {
-                    ibeaconJSONObject.put(JSON.KEY_STATE, JSON.STATE_SEND_IBEACON);
-                    ibeaconJSONObject.put(JSON.KEY_LOCATION, myLocation);
-
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-                if(isLogin)
-                    sendtoServer(ibeaconJSONObject);
-
-            }
-            PreviousRssi = Rssi;
-            PreviousMajor = Major;
-            PreviousMinor = Minor;
-
-            RssiText.setText( "Rssi  : " + Rssi);
-            UuidText.setText( "Uuid  : " + Uuid);
-            MajorText.setText("Major : " + Major);
-            MinorText.setText("Minor : " + Minor);
-        }
-    };
 
 }
