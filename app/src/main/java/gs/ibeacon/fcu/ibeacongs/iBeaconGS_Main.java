@@ -25,6 +25,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.sails.engine.LocationRegion;
 import com.sails.engine.SAILS;
@@ -54,7 +55,7 @@ public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
 
-    private String address = "10.22.24.207";
+    private String address = "140.134.226.181";
     private int port = 8766;
 
     static SAILS mSails;
@@ -549,9 +550,13 @@ public class iBeaconGS_Main extends Activity
                         receiveObject = new JSONObject(receiveMessage);
                         isLogin = receiveObject.getBoolean(JSON.KEY_RESULT);
                         if(isLogin){
+                            showToastFromBackground("Login Success");
                             //loginItem.setTitle("Logout");
                             //msgLogin.show();
                             (new Thread(serverhandler)).start();
+                        }
+                        else{
+                            showToastFromBackground("Login Fail");
                         }
                     }
 
@@ -610,16 +615,27 @@ public class iBeaconGS_Main extends Activity
             PreviousMajor = Major;
             PreviousMinor = Minor;
 
-            RssiText.setText( "Rssi  : " + Rssi);
-            UuidText.setText( "Uuid  : " + Uuid);
-            MajorText.setText("Major : " + Major);
-            MinorText.setText("Minor : " + Minor);
+//            RssiText.setText( "Rssi  : " + Rssi);
+//            UuidText.setText( "Uuid  : " + Uuid);
+//            MajorText.setText("Major : " + Major);
+//            MinorText.setText("Minor : " + Minor);
+            if(myLocation != null){
+                MinorText.setText( "You are at : " + myLocation);
+            }
         }
     };
 
 
-
-
+    public void showToastFromBackground(final String msg) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast msgToast = Toast.makeText(iBeaconGS_Main.this, "", Toast.LENGTH_SHORT);
+                msgToast.setText(msg);
+                msgToast.show();
+            }
+        });
+    }
 
     void mapViewInitial() {
         //establish a connection of SAILS engine into SAILS MapView.
