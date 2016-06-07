@@ -54,7 +54,7 @@ public class iBeaconGS_Main extends Activity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks,BeaconConsumer {
 
 
-    private String address = "140.134.226.182";
+    private String address = "192.168.43.122";
     private int port = 8766;
 
     static SAILS mSails;
@@ -237,8 +237,9 @@ public class iBeaconGS_Main extends Activity
 
                             @Override
                             public void onFailed(String response) {
-                                msgLoadSuccess.setMessage("Load Failed");
-                                msgLoadSuccess.show();
+                                msgLoading.dismiss();
+                                //msgLoadSuccess.setMessage("Load Failed");
+                                //msgLoadSuccess.show();
                             }
                         });
                     }
