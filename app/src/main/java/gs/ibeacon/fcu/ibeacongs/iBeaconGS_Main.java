@@ -22,6 +22,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -64,12 +65,13 @@ public class iBeaconGS_Main extends Activity
     ActionBar actionBar;
     Vibrator mVibrator;
     //Spinner floorList;
-
+    private List<LocationRegion> locationRegions = null;
     private BeaconManager beaconManager;
     private TextView homeText;
     private TextView RssiText,UuidText,MajorText,MinorText;
     private Button stopButton;
     private Button findFriendButton;
+    private ImageView locationButton;
     private Handler mHandler;
     private int Rssi, Major, Minor;
     private String Uuid;
@@ -127,6 +129,7 @@ public class iBeaconGS_Main extends Activity
 
         stopButton = (Button) findViewById(R.id.stopButton);
         findFriendButton = (Button) findViewById(R.id.FindFriendButton);
+        locationButton = (ImageView) findViewById(R.id.LocationButton);
         msgLoading = new ProgressDialog(this);
         msgLoadSuccess = new AlertDialog.Builder(this);
         msgLogin = new AlertDialog.Builder(this);
@@ -166,6 +169,7 @@ public class iBeaconGS_Main extends Activity
                 startScan();
                 mTitle = getString(R.string.title_section2);
                 homeText.setVisibility(View.INVISIBLE);
+                locationButton.setVisibility(View.VISIBLE);
                 msgLoading.setTitle("Loading Map");
                 msgLoading.setMessage("Waiting ...");
 
@@ -185,6 +189,17 @@ public class iBeaconGS_Main extends Activity
                     }
                 });
 
+                locationButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if (locationRegions != null){
+                            mSailsMapView.getMarkerManager().clear();
+                            mSailsMapView.getRoutingManager().setStartRegion(locationRegions.get(0));
+                            mSailsMapView.getMarkerManager().setLocationRegionMarker(locationRegions.get(0), Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                            mSailsMapView.getRoutingManager().setStartMakerDrawable(Marker.boundCenter(getResources().getDrawable(R.drawable.start_point)));
+                        }
+                    }
+                });
                 mSailsMapView.post(new Runnable() {
                     @Override
                     public void run() {
@@ -582,7 +597,7 @@ public class iBeaconGS_Main extends Activity
         public void run() {
             if( PreviousMajor != Major || PreviousMinor != Minor ) {
                 //set start region
-                List<LocationRegion> locationRegions = null;
+               // List<LocationRegion> locationRegions = null;
                 JSONObject ibeaconJSONObject = new JSONObject();
                 if (Major == 4369 && Minor == 8738) {
                     myLocation = "資電234 - 網際網路及軟體工程學程實驗室";
